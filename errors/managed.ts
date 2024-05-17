@@ -25,6 +25,10 @@ export class ManagedError extends Error {
         Object.setPrototypeOf(this, ManagedError.prototype);
     }
 
+    toJSON() {
+        return this.toObject();
+    }
+    
     toObject(): ManagedErrorObject {
         const outCause = !this.cause ? undefined :
             this.cause instanceof ManagedError ?
