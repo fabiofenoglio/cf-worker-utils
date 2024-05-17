@@ -21,6 +21,24 @@ export class ManagedError extends Error {
         this.details = options?.details;
         this.code = options?.code;
 
+        if (options?.cause) {
+            if (!this.code) {
+                const wrappedWithCode = Unwrap(options.cause, e => e?.code && typeof e.code === 'string');
+                if (wrappedWithCode) {
+                    this.code = (wrappedWithCode as any).code;
+                }
+            }
+            const wrappedWithDetails = Unwrap(options.cause, e => e?.details && typeof e.details === 'object');
+            if (wrappedWithDetails) {
+                if (!this.details) {
+                    this.details = {};
+                }
+                for (const entry of Object.entries((wrappedWithDetails as any).details)) {
+                    this.details[entry[0]] = this.details[entry[0]] ?? entry[1];
+                }
+            }
+        }
+
         // Set the prototype explicitly.
         Object.setPrototypeOf(this, ManagedError.prototype);
     }
