@@ -54,9 +54,9 @@ export async function handleFetchWithSentry<Env = unknown, CfHostMetadata = unkn
         env: Env;
         ctx: ExecutionContext;
     }
-) {
-    return handleWithSentry(async () => {
-        await handler(input.req, input.env, input.ctx);
+): Promise<Response> {
+    return handleWithSentry<Response>(async () => {
+        return await handler(input.req, input.env, input.ctx);
     }, {
         doReport: async (err: any) => {
             if ((err as any)?.status === 401) {
