@@ -7,7 +7,7 @@ export async function handleFetchWithSentry<Env = unknown, CfHostMetadata = unkn
     }, 
     handler: ExportedHandlerFetchHandler<Env, CfHostMetadata>,
     args: {
-        req: Request<CfHostMetadata, IncomingRequestCfProperties<CfHostMetadata>>;
+        req: Request<any, any>;
         env: Env;
         ctx: ExecutionContext;
     },
