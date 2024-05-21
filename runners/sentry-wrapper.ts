@@ -1,4 +1,5 @@
 import { Toucan } from 'toucan-js';
+import { ManagedError } from '../errors';
 
 export async function handleFetchWithSentry<Env = unknown, CfHostMetadata = unknown>(
     input: {
@@ -38,7 +39,11 @@ export async function handleFetchWithSentry<Env = unknown, CfHostMetadata = unkn
     try {
         return await handler(args.req, args.env, args.ctx);
     } catch (err) {
-        sentry.captureException(err);
+        if ((err as any)?.status === 401) {
+            // pass
+        } else {
+            sentry.captureException(err);
+        }
 
         throw err;
     }
