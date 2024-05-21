@@ -1,7 +1,7 @@
 import { Toucan } from 'toucan-js';
 
-export async function handleWithSentry<Env = unknown>(
-    handler: () => Promise<unknown>,
+export async function handleWithSentry<T, Env = unknown>(
+    handler: () => Promise<T>,
     input: {
         sentryDSN: string;
         workerName: string;
