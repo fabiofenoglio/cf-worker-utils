@@ -1,22 +1,20 @@
 import { Toucan } from 'toucan-js';
-import { ManagedError } from '../errors';
 
-export async function handleFetchWithSentry<Env = unknown, CfHostMetadata = unknown>(
+export async function handleWithSentry<Env = unknown>(
+    handler: () => Promise<unknown>,
     input: {
         sentryDSN: string;
         workerName: string;
-    }, 
-    handler: ExportedHandlerFetchHandler<Env, CfHostMetadata>,
-    args: {
-        req: Request<any, any>;
+        req?: Request<any, any>;
         env: Env;
         ctx: ExecutionContext;
-    },
+        doReport?: (err: any) => Promise<boolean>,
+    }
 ) {
     const sentry = new Toucan({
         dsn: input.sentryDSN,
-        context: args.ctx,
-        request: args.req,
+        context: input.ctx,
+        request: input.req,
         beforeSend: (event) => {
             event.tags = {
                 ...(event.tags || {}),
@@ -37,14 +35,35 @@ export async function handleFetchWithSentry<Env = unknown, CfHostMetadata = unkn
     });
 
     try {
-        return await handler(args.req, args.env, args.ctx);
+        return await handler();
     } catch (err) {
-        if ((err as any)?.status === 401) {
-            // pass
-        } else {
+        if (!input.doReport || await input.doReport(err)) {
             sentry.captureException(err);
         }
 
         throw err;
     }
+}
+
+export async function handleFetchWithSentry<Env = unknown, CfHostMetadata = unknown>(
+    handler: ExportedHandlerFetchHandler<Env, CfHostMetadata>,
+    input: {
+        sentryDSN: string;
+        workerName: string;
+        req: Request<any, any>;
+        env: Env;
+        ctx: ExecutionContext;
+    }
+) {
+    return handleWithSentry(async () => {
+        await handler(input.req, input.env, input.ctx);
+    }, {
+        doReport: async (err: any) => {
+            if ((err as any)?.status === 401) {
+                return false;
+            }
+            return true;
+        },
+        ...input,
+    });
 }
