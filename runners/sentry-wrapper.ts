@@ -1,4 +1,5 @@
 import { Toucan } from 'toucan-js';
+import { ErrorEvent, EventHint, Event } from '@sentry/types'
 
 export async function handleWithSentry<T, Env = unknown>(
     handler: () => Promise<T>,
@@ -9,13 +10,14 @@ export async function handleWithSentry<T, Env = unknown>(
         env: Env;
         ctx: ExecutionContext;
         doReport?: (err: any) => Promise<boolean>,
+        beforeSend?: ((event: ErrorEvent, hint: EventHint) => Event | PromiseLike<Event | null> | null) | undefined
     }
 ) {
     const sentry = new Toucan({
         dsn: input.sentryDSN,
         context: input.ctx,
         request: input.req,
-        beforeSend: (event) => {
+        beforeSend: async (event, hint) => {
             event.tags = {
                 ...(event.tags || {}),
                 'worker': input.workerName,
@@ -30,6 +32,9 @@ export async function handleWithSentry<T, Env = unknown>(
                 'worker:' + input.workerName,
                 ...(event.fingerprint || ['{{ default }}']),
             ];
+            if (input.beforeSend) {
+                return await input.beforeSend(event, hint);
+            }
             return event;
         },
     });
