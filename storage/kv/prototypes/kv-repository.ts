@@ -1,13 +1,16 @@
 import {ManagedError, toManagedError} from "../../../errors";
+import {RetryOptions, withRetry} from "../../../runners/retry";
 
 export class KVRepository<T> {
     private readonly bucket: KVNamespace;
     private readonly prefix: string | null;
+    protected retryOptions: RetryOptions;
 
     constructor(
         private input: {
             bucket: KVNamespace;
             prefix: string | null | undefined;
+            retryOptions?: RetryOptions;
         },
     ) {
         if (!input.bucket) {
@@ -16,6 +19,17 @@ export class KVRepository<T> {
 
         this.bucket = input.bucket;
         this.prefix = input.prefix?.trim() || null;
+
+        this.retryOptions = input.retryOptions ?? {
+            retries: 3,
+            backoff: n => {
+                // 10, 100, 200, ...
+                if (n <= 1) {
+                    return 10;
+                }
+                return (n-1) * 100;
+            }
+        }
     }
 
     protected buildKey(id: string): string {
@@ -41,7 +55,10 @@ export class KVRepository<T> {
         }
         const k = this.buildKey(id);
         try {
-            return await this.bucket.get<T>(k, 'json')
+            return await withRetry(
+                () => this.bucket.get<T>(k, 'json'),
+                this.retryOptions,
+            );
         } catch (err) {
             throw new ManagedError('error getting record from KV store', {
                 cause: toManagedError(err),
@@ -58,7 +75,10 @@ export class KVRepository<T> {
         }
         const k = this.buildKey(id);
         try {
-            return await this.bucket.getWithMetadata<T, M>(k, 'json')
+            return await withRetry(
+                () => this.bucket.getWithMetadata<T, M>(k, 'json'),
+                this.retryOptions,
+            );
         } catch (err) {
             throw new ManagedError('error getting record from KV store with metadata', {
                 cause: toManagedError(err),
@@ -75,7 +95,10 @@ export class KVRepository<T> {
         }
         const k = this.buildKey(id);
         try {
-            return await this.bucket.put(k, JSON.stringify(value), options);
+            return await withRetry(
+                () => this.bucket.put(k, JSON.stringify(value), options),
+                this.retryOptions,
+            );
         } catch (err) {
             throw new ManagedError('error writing record in KV store', {
                 cause: toManagedError(err),
@@ -94,7 +117,10 @@ export class KVRepository<T> {
         }
         const k = this.buildKey(id);
         try {
-            return await this.bucket.delete(k)
+            return await withRetry(
+                () => this.bucket.delete(k),
+                this.retryOptions,
+            );
         } catch (err) {
             throw new ManagedError('error deleting record from KV store', {
                 cause: toManagedError(err),
@@ -121,7 +147,10 @@ export class KVRepository<T> {
         let r: KVNamespaceListResult<T, string>;
 
         try {
-            r = await this.bucket.list<T>(options);
+            r = await withRetry(
+                () => this.bucket.list<T>(options),
+                this.retryOptions,
+            );
         } catch (err) {
             throw new ManagedError('error listing record from KV store', {
                 cause: toManagedError(err),
