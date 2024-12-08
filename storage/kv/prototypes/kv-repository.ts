@@ -22,9 +22,12 @@ export class KVRepository<T> {
     }
 
     public async get(id: string): Promise<T | null> {
+        if (!id?.length) {
+            throw new Error('invalid empty ID');
+        }
         const k = this.buildKey(id);
         try {
-            return this.bucket.get<T>(k, 'json')
+            return await this.bucket.get<T>(k, 'json')
         } catch (err) {
             throw new ManagedError('error getting record from KV store', {
                 cause: toManagedError(err),
@@ -36,9 +39,12 @@ export class KVRepository<T> {
     }
 
     public async getWithMetadata<M>(id: string): Promise<KVNamespaceGetWithMetadataResult<T, M> | null> {
+        if (!id?.length) {
+            throw new Error('invalid empty ID');
+        }
         const k = this.buildKey(id);
         try {
-            return this.bucket.getWithMetadata<T, M>(k, 'json')
+            return await this.bucket.getWithMetadata<T, M>(k, 'json')
         } catch (err) {
             throw new ManagedError('error getting record from KV store with metadata', {
                 cause: toManagedError(err),
@@ -50,9 +56,12 @@ export class KVRepository<T> {
     }
 
     public async put(id: string, value: T, options?: KVNamespacePutOptions | undefined): Promise<void> {
+        if (!id?.length) {
+            throw new Error('invalid empty ID');
+        }
         const k = this.buildKey(id);
         try {
-            return this.bucket.put(k, JSON.stringify(value), options);
+            return await this.bucket.put(k, JSON.stringify(value), options);
         } catch (err) {
             throw new ManagedError('error writing record in KV store', {
                 cause: toManagedError(err),
@@ -66,9 +75,12 @@ export class KVRepository<T> {
     }
 
     public async delete(id: string): Promise<void> {
+        if (!id?.length) {
+            throw new Error('invalid empty ID');
+        }
         const k = this.buildKey(id);
         try {
-            return this.bucket.delete(k)
+            return await this.bucket.delete(k)
         } catch (err) {
             throw new ManagedError('error deleting record from KV store', {
                 cause: toManagedError(err),
@@ -92,8 +104,10 @@ export class KVRepository<T> {
             }
         }
 
+        let r: KVNamespaceListResult<T, string>;
+
         try {
-            return this.bucket.list<T>(options);
+            r = await this.bucket.list<T>(options);
         } catch (err) {
             throw new ManagedError('error listing record from KV store', {
                 cause: toManagedError(err),
@@ -102,5 +116,19 @@ export class KVRepository<T> {
                 },
             });
         }
+
+        if (this.prefix?.length) {
+            for (let i = 0; i < r.keys.length; i ++) {
+                let newKey = r.keys[i].name;
+                const expectedPrefix = this.prefix + '/';
+                if (!newKey.startsWith(expectedPrefix)) {
+                    throw new Error(`listed key "${newKey}" was expected to start with "${expectedPrefix}" but did not`);
+                }
+                newKey = newKey.substring(expectedPrefix.length);
+                r.keys[i].name = newKey;
+            }
+        }
+
+        return r
     }
 }
