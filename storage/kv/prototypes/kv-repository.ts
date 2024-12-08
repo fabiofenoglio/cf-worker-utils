@@ -8,6 +8,9 @@ export class KVRepository<T> {
     }
 
     protected buildKey(id: string): string {
+        if (!id?.length) {
+            throw new Error('invalid empty ID');
+        }
         if (!this.prefix?.length) {
             return id;
         }
@@ -130,5 +133,22 @@ export class KVRepository<T> {
         }
 
         return r
+    }
+
+    public async getOrPut(id: string, getter: () => Promise<T>, putOptions?: KVNamespacePutOptions | undefined): Promise<T> {
+        if (!id?.length) {
+            throw new Error('invalid empty ID');
+        }
+
+        const present = await this.get(id);
+        if (present) {
+            return present;
+        }
+
+        const fetched = await getter();
+
+        await this.put(id, fetched, putOptions);
+
+        return fetched;
     }
 }
