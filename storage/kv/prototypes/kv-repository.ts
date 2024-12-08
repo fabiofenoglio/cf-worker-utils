@@ -1,10 +1,21 @@
 import {ManagedError, toManagedError} from "../../../errors";
 
 export class KVRepository<T> {
+    private readonly bucket: KVNamespace;
+    private readonly prefix: string | null;
+
     constructor(
-        private bucket: KVNamespace,
-        private prefix: string | null,
+        private input: {
+            bucket: KVNamespace;
+            prefix: string | null | undefined;
+        },
     ) {
+        if (!input.bucket) {
+            throw new Error('missing required input bucket');
+        }
+
+        this.bucket = input.bucket;
+        this.prefix = input.prefix?.trim() || null;
     }
 
     protected buildKey(id: string): string {
